@@ -1,24 +1,107 @@
-# ARIMA-energy
-Descrição: Análise de Séries Temporais com Previsões e Modelagem SARIMA
+Passos do Projeto
 
-Este projeto envolveu uma análise de séries temporais utilizando a linguagem Python e diversas bibliotecas, incluindo NumPy, Pandas, Matplotlib, StatsModels, pmdarima e scikit-learn. O foco da análise foi a previsão de uma série temporal de produção de dados ao longo de um período de tempo.
+    Instalação de Pacotes:
+        Instalamos os pacotes necessários para o projeto, como scipy e pmdarima.
 
-Aqui estão os principais passos e ações realizados no projeto:
+python
 
-Importação de Bibliotecas: Foram importadas as bibliotecas necessárias, incluindo NumPy, Pandas, Matplotlib, StatsModels, pmdarima e scikit-learn, para análise de dados, previsões e modelagem.
+!pip install scipy
+!pip install pmdarima
 
-Exploração de Dados Iniciais: A série temporal de produção de dados foi carregada e explorada para entender sua estrutura e tendências. Isso envolveu a análise de estatísticas descritivas, como média, desvio padrão, mínimo e máximo.
+    Importação de Bibliotecas:
+        Importamos as bibliotecas essenciais para manipulação de dados, análise de séries temporais e modelagem.
 
-Decomposição de Séries Temporais: A série temporal foi decomposta em componentes de tendência, sazonalidade e resíduos usando a função seasonal_decompose da StatsModels. Isso ajudou a entender os padrões subjacentes nos dados.
+python
 
-Teste de Estacionariedade: Foram realizados testes ADF (Augmented Dickey-Fuller) para verificar a estacionariedade dos dados originais e de suas diferenças. Isso é essencial para determinar a ordem de diferenciação necessária.
+import pandas as pd
+from statsmodels.tsa.arima.model import ARIMA
+import matplotlib.pyplot as plt
+from statsmodels.tsa.seasonal import seasonal_decompose
+from statsmodels.tsa.stattools import adfuller
+from pmdarima.arima import auto_arima
+from statsmodels.tsa.statespace.sarimax import SARIMAX
+from sklearn.metrics import mean_absolute_error
 
-Modelagem SARIMA: Um modelo SARIMA (Seasonal AutoRegressive Integrated Moving Average) foi ajustado aos dados usando a função auto_arima do pmdarima. O processo de seleção de hiperparâmetros, como ordem de diferenciação, ordens AR (AutoRegressive) e MA (Moving Average), e componentes sazonais, foi automatizado.
+    Carregamento e Análise Inicial dos Dados:
+        Carregamos os dados do arquivo 'energy.xlsx' e realizamos uma breve análise estatística.
 
-Previsões e Intervalo de Confiança: Foram obtidas previsões futuras usando o modelo SARIMA ajustado e calculados intervalos de confiança para as previsões. Isso permitiu estimar a incerteza nas previsões.
+python
 
-Avaliação de Desempenho: O erro médio absoluto (MAE) foi calculado para avaliar o quão bem as previsões do modelo se ajustam aos dados reais.
+df = pd.read_excel('/content/energy.xlsx', index_col='DATE', parse_dates=True)
+df.describe()
+df.index.min(), df.index.max()
 
-Visualização de Resultados: Os resultados foram visualizados usando gráficos para mostrar as previsões, intervalos de confiança e os dados reais ao longo do tempo.
+    Visualização da Série Temporal:
+        Visualizamos a série temporal da produção de energia.
 
-Exportação para o GitHub: Os códigos e resultados foram registrados e compartilhados no GitHub para referência futura.
+python
+
+df['producao'].plot(figsize=(10, 6))
+plt.show()
+
+    Decomposição da Série Temporal e Teste ADF:
+        Realizamos a decomposição da série temporal e aplicamos o teste ADF (Augmented Dickey-Fuller) para verificar a estacionariedade.
+
+python
+
+resultado = seasonal_decompose(df)
+fig = plt.figure(figsize=(8, 6))
+resultado.plot()
+
+result = adfuller(df['producao'].diff().dropna())
+print(f'Teste ADF: {result[0]}, p valor: {result[1]}')
+
+    Modelo ARIMA com Auto-Arima:
+        Utilizamos o Auto-Arima para encontrar os melhores parâmetros para o modelo ARIMA.
+
+python
+
+fit_arima = auto_arima(df, d=1, start_q=1, max_p=3, max_q=3, seasonal=True, n=6, D=1, start_P=1, start_Q=1, max_P=2, max_Q=2, information_criterion='aic', trace=True, error_action='ignore', stepwise=True)
+
+    Modelo SARIMAX:
+        Aplicamos o modelo SARIMAX para a série temporal.
+
+python
+
+model = SARIMAX(df, order=(1,1,1), seasonal_order=(1,1,2,6))
+resultado_sarimax = model.fit()
+
+    Previsões e Intervalo de Confiança:
+        Realizamos previsões com o modelo SARIMAX e calculamos o intervalo de confiança.
+
+python
+
+predicoes = resultado_sarimax.get_prediction(start=-12)
+predicao_media = predicoes.predicted_mean
+
+intervalo_confianca = predicoes.conf_int()
+limite_abaixo = intervalo_confianca.iloc[0, 0]
+limite_acima = intervalo_confianca.iloc[0, 1]
+
+    Avaliação da Previsão:
+        Calculamos o erro médio absoluto (MAE) para avaliar a qualidade da previsão.
+
+python
+
+mae = mean_absolute_error(df[-12:].values, predicao_media.values)
+print(f'MAE: {mae}')
+
+    Forecast e Plotagem:
+        Geramos previsões futuras e plotamos o resultado.
+
+python
+
+forecast = resultado_sarimax.get_forecast(steps=12)
+forecast_medio = forecast.predicted_mean
+
+intervalo_confianca_forecast = forecast.conf_int()
+intervalo_abaixo_f = intervalo_confianca_forecast.iloc[0:, 0]
+intervalo_acima_f = intervalo_confianca_forecast.iloc[:, 1]
+
+plt.plot(df.index, df['producao'], label='Dados reais', color='blue')
+plt.plot(predicao_media.index, predicao_media, label='Previsões', color='red')
+plt.plot(forecast_medio.index, forecast_medio, label='Forecast', color='green')
+plt.xlabel('Data')
+plt.ylabel('Valor')
+plt.legend()
+plt.show()
